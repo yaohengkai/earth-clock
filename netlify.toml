@@ -1,0 +1,71 @@
+# Netlify deployment for earth-clock.
+#
+# public/ IS the production build output (Vite writes there via BUILD_AS_ROOT=1 and
+# the release flow commits it — see DEPLOYMENT.md §6). So the deploy runs no build
+# command: Netlify publishes the committed tree as-is. A commit that only touches
+# frontend/src/ will NOT change the site here, exactly as on CapRover.
+
+[build]
+  publish = "public"
+  # No build command on purpose: public/ is already the production bundle. If the
+  # Netlify UI pre-fills "npm run build" on import, clear it — the root package.json
+  # has no build script and the deploy would fail.
+
+[functions]
+  directory = "netlify/functions"
+
+[dev]
+  # Static-server mode for `netlify dev`; there is no dev command to run.
+  framework = "#static"
+
+# ---------------------------------------------------------------------------
+# /proxy/nhc/ — NOAA NHC tropical-cyclone feed. Upstream sends no CORS headers,
+# so the browser cannot fetch it directly. Mirrors the NGINX rule in
+# infra/nginx-caprover-override.conf, including the identifying User-Agent.
+# ---------------------------------------------------------------------------
+[[redirects]]
+  from = "/proxy/nhc/*"
+  to = "https://www.nhc.noaa.gov/:splat"
+  status = 200
+  force = true
+  headers = { User-Agent = "earth-clock (netlify proxy)" }
+
+# ---------------------------------------------------------------------------
+# /proxy/geocode/ — reverse geocoder for click-to-pin. netlify/functions/geocode.mjs
+# forwards to LocationIQ and injects the key server-side; set LOCATIONIQ_KEY in the
+# Netlify UI (Site configuration → Environment variables). Without a key it falls
+# back to public Nominatim, which rate-limits/blocks cloud IPs, so set the key.
+# ---------------------------------------------------------------------------
+[[redirects]]
+  from = "/proxy/geocode/reverse"
+  to = "/.netlify/functions/geocode"
+  status = 200
+  force = true
+
+# ---------------------------------------------------------------------------
+# Live data produced by the CapRover daemons (services/weather-service.js,
+# earthquake-service.js, satellite-service.js). Those JSON files are gitignored,
+# so a pure static deploy has no copy of them; proxy the still-running production
+# host instead, which keeps the weather/quake/satellite layers live on Netlify.
+#
+# OPTIONAL / TEMPORARY: delete this block once the data services are ported to a
+# Netlify-friendly host, or once CapRover is retired. Without it those layers show
+# as unavailable (the rest of the app is unaffected).
+# ---------------------------------------------------------------------------
+[[redirects]]
+  from = "/data/weather/*"
+  to = "https://earth-clock.onemonkey.org/data/weather/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/data/earthquakes/*"
+  to = "https://earth-clock.onemonkey.org/data/earthquakes/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/data/satellites/current.json"
+  to = "https://earth-clock.onemonkey.org/data/satellites/current.json"
+  status = 200
+  force = true

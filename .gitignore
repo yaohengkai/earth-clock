@@ -31,3 +31,6 @@ public/orrery/
 # Pre-cutover snapshot of /public/ kept on disk as rollback insurance during the
 # v0.1.0 cutover. Never commit — large + redundant with the classic/ subtree.
 public.backup/
+
+# Local Netlify folder
+.netlify
